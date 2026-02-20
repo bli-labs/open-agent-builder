@@ -2,20 +2,24 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
+import type { Node } from "@xyflow/react";
 
 interface ExtractNodePanelProps {
-  nodeData: any;
-  onUpdate: (nodeId: string, updates: any) => void;
+  node: Node | null;
+  nodes?: Node[];
   onClose: () => void;
-  onAddMCP: () => void;
+  onDelete: (nodeId: string) => void;
+  onUpdate: (nodeId: string, data: any) => void;
 }
 
 export default function ExtractNodePanel({
-  nodeData,
-  onUpdate,
+  node,
+  nodes,
   onClose,
-  onAddMCP,
+  onDelete,
+  onUpdate,
 }: ExtractNodePanelProps) {
+  const nodeData = node?.data as any;
   const [instructions, setInstructions] = useState(nodeData?.instructions || 'Extract information from the input');
   const [model, setModel] = useState(nodeData?.model || 'gpt-4o');
   const [customModel, setCustomModel] = useState('');
@@ -147,15 +151,6 @@ export default function ExtractNodePanel({
               <label className="block text-label-small text-black-alpha-48">
                 MCP Tools (Optional)
               </label>
-              <button
-                onClick={onAddMCP}
-                className="px-10 py-6 bg-background-base hover:bg-black-alpha-4 border border-border-faint rounded-6 text-body-small text-accent-black transition-colors flex items-center gap-6"
-              >
-                <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Add MCP
-              </button>
             </div>
 
             {nodeData?.mcpTools && nodeData.mcpTools.length > 0 ? (

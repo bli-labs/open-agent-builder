@@ -205,6 +205,118 @@ Get your key at [e2b.dev](https://e2b.dev)
 
 ---
 
+## Configuration
+
+Open Agent Builder supports three configuration modes to fit different use cases:
+
+### 🚀 Mode 1: Zero Config (Default)
+
+**Perfect for:** Local development, demos, quick experimentation
+
+No configuration needed! The app runs entirely in your browser with:
+- **Auth**: No login required (anonymous mode)
+- **Storage**: In-memory (ephemeral, resets on page reload)
+
+```bash
+# Just run the app - no .env needed!
+npm run dev
+```
+
+Your workflows are stored in browser memory and will be lost on page refresh. Great for testing!
+
+---
+
+### 🔥 Mode 2: Firebase
+
+**Perfect for:** Personal projects, small teams, free tier hosting
+
+Persistent storage and authentication with Firebase:
+- **Auth**: Google Sign-In via Firebase Auth
+- **Storage**: Firestore for persistent workflows
+
+**Setup:**
+
+1. Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com/)
+2. Enable Google Authentication in Firebase Console → Authentication → Sign-in method
+3. Create a Firestore database in Firebase Console → Firestore Database
+4. Copy your Firebase config values to `.env.local`:
+
+```bash
+# Copy .env.example to .env.local and fill in:
+NEXT_PUBLIC_AUTH_PROVIDER=firebase
+NEXT_PUBLIC_STORAGE_PROVIDER=firebase
+
+NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
+```
+
+5. Add at least one LLM API key for agent functionality:
+```bash
+ANTHROPIC_API_KEY=sk-ant-xxx
+# or
+OPENAI_API_KEY=sk-xxx
+```
+
+6. Run the app:
+```bash
+npm run dev
+```
+
+---
+
+### 🏢 Mode 3: Clerk + Convex (Production)
+
+**Perfect for:** Production apps, teams, enterprise deployments
+
+Production-grade auth and real-time sync:
+- **Auth**: Clerk (email, social, SSO)
+- **Storage**: Convex (real-time sync, serverless backend)
+
+**Setup:**
+
+1. Create a Clerk account at [clerk.com](https://clerk.com/)
+2. Create a Convex deployment at [convex.dev](https://www.convex.dev/)
+3. Configure Clerk with Convex following [this guide](https://docs.convex.dev/auth/clerk)
+4. Copy your config values to `.env.local`:
+
+```bash
+NEXT_PUBLIC_AUTH_PROVIDER=clerk
+NEXT_PUBLIC_STORAGE_PROVIDER=convex
+
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_xxx
+CLERK_SECRET_KEY=sk_xxx
+
+NEXT_PUBLIC_CONVEX_URL=https://xxx.convex.cloud
+```
+
+5. Add your LLM API keys:
+```bash
+ANTHROPIC_API_KEY=sk-ant-xxx
+```
+
+6. Run both Convex and Next.js:
+```bash
+npm run dev:all  # Runs both convex dev and next dev
+```
+
+---
+
+### Environment Variables Reference
+
+See [`.env.example`](.env.example) for a complete list of all configuration options and additional examples.
+
+**Required for all modes:**
+- At least one LLM API key (Anthropic, OpenAI, or Groq) for agent functionality
+
+**Optional:**
+- `FIRECRAWL_API_KEY` - For web scraping functionality
+
+---
+
 ## Running the Application
 
 ### Development Mode
@@ -334,7 +446,7 @@ Output: "Firecrawl is a web scraping API that converts websites into LLM-ready m
 
 ---
 
-## Configuration
+## User Settings & API Keys
 
 ### User-Level API Keys
 

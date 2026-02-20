@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  basePath: '/proxy/8100',
   images: {
     remotePatterns: [
       {

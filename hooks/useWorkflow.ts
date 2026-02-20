@@ -1,61 +1,54 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Workflow, WorkflowNode, WorkflowEdge, MCPServer } from '@/lib/workflow/types';
 import {
-  saveWorkflow as saveWorkflowToStorage,
-  getWorkflows,
-  getWorkflow,
-  deleteWorkflow as deleteWorkflowFromStorage,
-  setCurrentWorkflow,
-  getCurrentWorkflowId,
   saveMCPServer,
   getMCPServers,
 } from '@/lib/workflow/storage';
 import { cleanupInvalidEdges } from '@/lib/workflow/edge-cleanup';
+import { getStorageProvider } from '@/lib/storage';
+import { useAuthContext } from '@/components/providers/AuthProvider';
 
 export function useWorkflow(workflowId?: string) {
+  const { user } = useAuthContext();
+  const userId = user?.uid;
+  const storageProvider = useMemo(() => getStorageProvider(), []);
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [convexId, setConvexId] = useState<string | null>(null); // Track Convex ID
-  const saveToConvexTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [convexId, setConvexId] = useState<string | null>(null); // Track storage provider ID
+  const saveToStorageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load workflow from Redis via API
+  // Load workflow from storage provider
   useEffect(() => {
     const loadWorkflow = async () => {
       setLoading(true);
 
       if (workflowId) {
-        // Fetch workflow from API (Redis)
+        // Fetch workflow from storage provider
         try {
-          const response = await fetch('/api/workflows');
-          const data = await response.json();
-          const workflows = data.workflows || [];
-          const loaded = workflows.find((w: any) => w.id === workflowId);
+          const workflowData = await storageProvider.getWorkflow(workflowId);
 
-          if (loaded) {
-            // Fetch full workflow details
-            const fullWorkflow = await fetch(`/api/workflows/${workflowId}`).then(r => r.json());
-            let workflowData = fullWorkflow.workflow || loaded;
-
+          if (workflowData) {
             // Clean up any invalid edges before setting the workflow
             const cleaned = cleanupInvalidEdges(workflowData.nodes, workflowData.edges);
+            let finalWorkflow = workflowData;
             if (cleaned.removedCount > 0) {
               console.log(`🧹 Cleaned ${cleaned.removedCount} invalid edges from loaded workflow`);
-              workflowData = {
+              finalWorkflow = {
                 ...workflowData,
                 nodes: cleaned.nodes,
                 edges: cleaned.edges,
               };
             }
 
-            setWorkflow(workflowData);
-            // Store the Convex ID for future saves
-            setConvexId(workflowData._convexId || workflowData._id || null);
+            setWorkflow(finalWorkflow);
+            // Store the storage provider ID for future saves
+            setConvexId((workflowData as any)._convexId || (workflowData as any)._id || null);
           } else {
             createNewWorkflow();
           }
         } catch (error) {
-          console.error('Failed to load workflow from Convex:', error);
+          console.error('Failed to load workflow from storage:', error);
           createNewWorkflow();
         }
       } else {
@@ -66,19 +59,19 @@ export function useWorkflow(workflowId?: string) {
     };
 
     loadWorkflow();
-  }, [workflowId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workflowId, storageProvider]);
 
-  // Load all workflows from API
+  // Load all workflows from storage provider
   const loadWorkflows = useCallback(async () => {
     try {
-      const response = await fetch('/api/workflows');
-      const data = await response.json();
-      setWorkflows(data.workflows || []);
+      const workflows = await storageProvider.listWorkflows(userId);
+      setWorkflows(workflows);
     } catch (error) {
-      console.error('Failed to load workflows from API:', error);
+      console.error('Failed to load workflows from storage:', error);
       setWorkflows([]);
     }
-  }, []);
+  }, [storageProvider, userId]);
 
   useEffect(() => {
     loadWorkflows();
@@ -152,22 +145,17 @@ export function useWorkflow(workflowId?: string) {
 
       setWorkflow(newWorkflow);
 
-      // Save immediately to Convex
+      // Save immediately to storage
       try {
-        const response = await fetch('/api/workflows', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newWorkflow),
-        });
-        const data = await response.json();
-        console.log('💾 New workflow saved to Convex:', data.success ? 'SUCCESS' : 'FAILED');
+        const savedId = await storageProvider.saveWorkflow(newWorkflow, userId);
+        console.log('💾 New workflow saved to storage:', savedId ? 'SUCCESS' : 'FAILED');
 
-        // Store the Convex ID from the response
-        if (data.success && data.workflowId) {
-          setConvexId(data.workflowId);
+        // Store the storage provider ID from the response
+        if (savedId) {
+          setConvexId(savedId);
         }
       } catch (error) {
-        console.error('Failed to save new workflow to Convex:', error);
+        console.error('Failed to save new workflow to storage:', error);
       }
       return;
     }
@@ -181,33 +169,28 @@ export function useWorkflow(workflowId?: string) {
     setWorkflow(updated);
 
     // Clear any pending save timeout
-    if (saveToConvexTimeoutRef.current) {
-      clearTimeout(saveToConvexTimeoutRef.current);
+    if (saveToStorageTimeoutRef.current) {
+      clearTimeout(saveToStorageTimeoutRef.current);
     }
 
-    // Debounce the save to Convex to prevent rapid saves
-    saveToConvexTimeoutRef.current = setTimeout(async () => {
+    // Debounce the save to storage to prevent rapid saves
+    saveToStorageTimeoutRef.current = setTimeout(async () => {
       try {
-        const response = await fetch('/api/workflows', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updated),
-        });
-        const data = await response.json();
-        console.log('💾 [AUTO-SAVE] Workflow synced to Convex:', data.success ? '✅ SUCCESS' : '❌ FAILED');
+        const savedId = await storageProvider.saveWorkflow(updated, userId);
+        console.log('💾 [AUTO-SAVE] Workflow synced to storage:', savedId ? '✅ SUCCESS' : '❌ FAILED');
 
-        // Store the Convex ID from the response
-        if (data.success && data.workflowId) {
-          setConvexId(data.workflowId);
+        // Store the storage provider ID from the response
+        if (savedId) {
+          setConvexId(savedId);
         }
 
         // Don't reload workflows on every save - only when explicitly needed
         // This prevents unnecessary re-fetches and duplicate saves
       } catch (error) {
-        console.error('❌ Failed to save workflow to Convex:', error);
+        console.error('❌ Failed to save workflow to storage:', error);
       }
     }, 1000); // 1000ms debounce to batch rapid saves
-  }, [workflow, loadWorkflows]);
+  }, [workflow, storageProvider, userId]);
 
   // Update nodes
   const updateNodes = useCallback((nodes: WorkflowNode[]) => {
@@ -241,14 +224,18 @@ export function useWorkflow(workflowId?: string) {
   }, [workflow, updateNodes]);
 
   // Delete workflow
-  const deleteWorkflow = useCallback((id: string) => {
-    deleteWorkflowFromStorage(id);
-    loadWorkflows();
+  const deleteWorkflow = useCallback(async (id: string) => {
+    try {
+      await storageProvider.deleteWorkflow(id);
+      loadWorkflows();
 
-    if (workflow?.id === id) {
-      createNewWorkflow();
+      if (workflow?.id === id) {
+        createNewWorkflow();
+      }
+    } catch (error) {
+      console.error('Failed to delete workflow:', error);
     }
-  }, [workflow, loadWorkflows, createNewWorkflow]);
+  }, [workflow, loadWorkflows, createNewWorkflow, storageProvider]);
 
   // Save workflow immediately (non-debounced) - used before execution
   const saveWorkflowImmediate = useCallback(async (updates?: Partial<Workflow>) => {
@@ -266,37 +253,32 @@ export function useWorkflow(workflowId?: string) {
     setWorkflow(updated);
 
     // Cancel any pending debounced saves
-    if (saveToConvexTimeoutRef.current) {
-      clearTimeout(saveToConvexTimeoutRef.current);
-      saveToConvexTimeoutRef.current = null;
+    if (saveToStorageTimeoutRef.current) {
+      clearTimeout(saveToStorageTimeoutRef.current);
+      saveToStorageTimeoutRef.current = null;
     }
 
     // Save immediately without debounce
     try {
-      const response = await fetch('/api/workflows', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated),
-      });
-      const data = await response.json();
-      console.log('💾 [IMMEDIATE SAVE] Workflow saved to Convex:', data.success ? '✅ SUCCESS' : '❌ FAILED');
+      const savedId = await storageProvider.saveWorkflow(updated, userId);
+      console.log('💾 [IMMEDIATE SAVE] Workflow saved to storage:', savedId ? '✅ SUCCESS' : '❌ FAILED');
 
-      if (data.success && data.workflowId) {
-        setConvexId(data.workflowId);
+      if (savedId) {
+        setConvexId(savedId);
       }
 
-      return data.success;
+      return !!savedId;
     } catch (error) {
       console.error('❌ Failed to save workflow immediately:', error);
       return false;
     }
-  }, [workflow]);
+  }, [workflow, storageProvider, userId]);
 
   return {
     workflow,
     workflows,
     loading,
-    convexId, // Expose Convex ID for templates and other features
+    convexId, // Expose storage provider ID for templates and other features
     saveWorkflow,
     saveWorkflowImmediate, // Non-debounced save for before execution
     updateNodes,

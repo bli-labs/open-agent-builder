@@ -16,7 +16,7 @@ export default function ShareWorkflowModal({ isOpen, onClose, workflowId, workfl
 
   const baseUrl = typeof window !== 'undefined'
     ? window.location.origin
-    : 'http://localhost:3000';
+    : 'http://localhost:8100';
 
   const executeUrl = `${baseUrl}/api/workflows/${workflowId}/execute`;
   const streamUrl = `${baseUrl}/api/workflows/${workflowId}/execute-stream`;

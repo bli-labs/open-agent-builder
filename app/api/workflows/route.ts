@@ -84,9 +84,9 @@ export async function POST(request: NextRequest) {
 
     if (!isConvexConfigured()) {
       return NextResponse.json({
-        success: false,
-        message: 'Convex not configured. Add NEXT_PUBLIC_CONVEX_URL to .env.local',
-      }, { status: 500 });
+        success: true,
+        message: 'Using client-side storage. Workflows are saved locally in your browser.',
+      });
     }
 
     // Validate workflow has required fields
@@ -158,9 +158,9 @@ export async function DELETE(request: NextRequest) {
 
     if (!isConvexConfigured()) {
       return NextResponse.json({
-        success: false,
-        message: 'Convex not configured',
-      }, { status: 500 });
+        success: true,
+        message: 'Using client-side storage. Workflows are managed locally in your browser.',
+      });
     }
 
     const convex = await getAuthenticatedConvexClient();

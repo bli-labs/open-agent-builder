@@ -5,7 +5,7 @@ import { useState, useEffect, Suspense } from "react";
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs';
+import { useAuthContext } from "@/components/providers/AuthProvider";
 
 // Import shared components
 import Button from "@/components/shared/button/Button";
@@ -34,6 +34,7 @@ import GithubIcon from "@/components/shared/header/Github/_svg/GithubIcon";
 import ButtonUI from "@/components/ui/shadcn/button";
 
 function StyleGuidePageContent() {
+  const { SignedIn, SignedOut, SignInButton, UserButton } = useAuthContext();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -133,7 +134,7 @@ function StyleGuidePageContent() {
 
                 {/* Clerk Auth */}
                 <SignedOut>
-                  <SignInButton mode="modal">
+                  <SignInButton>
                     <button className="px-16 py-8 bg-heat-100 hover:bg-heat-200 text-white rounded-8 text-body-medium font-medium transition-all active:scale-[0.98]">
                       Sign In
                     </button>
@@ -239,7 +240,7 @@ function StyleGuidePageContent() {
 
               {/* When signed out - open sign-in modal */}
               <SignedOut>
-                <SignInButton mode="modal">
+                <SignInButton>
                   <button className="bg-heat-100 hover:bg-heat-200 text-white font-medium px-32 py-12 rounded-10 transition-all active:scale-[0.98] text-body-medium shadow-md cursor-pointer">
                     Start building
                   </button>
